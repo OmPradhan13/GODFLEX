@@ -14,7 +14,8 @@ class GODFLEXRuntime:
         
         self.chat_history = []
         # Direct REST API Endpoint
-        self.url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
+        self.url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={self.api_key}"
+        
 
     def chat(self, message: str, context: str = "") -> str:
         prompt = message
