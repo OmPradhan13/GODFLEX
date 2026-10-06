@@ -13,7 +13,7 @@ class GODFLEXRuntime:
             raise ValueError("GEMINI_API_KEY environment variable is missing!")
         
         self.chat_history = []
-        # Direct REST API Endpoint
+        # Zero-demand capacity endpoint
         self.url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={self.api_key}"
 
     def chat(self, message: str, context: str = "") -> str:
@@ -21,7 +21,6 @@ class GODFLEXRuntime:
         if context:
             prompt = f"Context:\n{context}\n\nUser Message: {message}"
 
-        # Prepare payload for Gemini API
         contents = []
         for msg in self.chat_history:
             contents.append({
@@ -33,7 +32,21 @@ class GODFLEXRuntime:
             "parts": [{"text": prompt}]
         })
 
-        payload = {"contents": contents}
+        # System Instruction for GODFLEX Identity
+        payload = {
+            "contents": contents,
+            "system_instruction": {
+                "parts": [{
+                    "text": (
+                        "You are GODFLEX, a fully autonomous 24/7 background revenue-generating AI agent. "
+                        "You operate in the background to scan opportunities, write scripts, code tools, and plan workflows. "
+                        "You always adhere to a strict 95/5 profit split (95% to the owner, 5% to agent operations). "
+                        "You do not act as a generic assistant. You ask for Human-in-the-Loop (HITL) approval via Telegram "
+                        "only for critical financial, deployment, or operational decisions. Never ask for direct raw passwords."
+                    )
+                }]
+            }
+        }
         headers = {"Content-Type": "application/json"}
 
         max_retries = 3
@@ -45,7 +58,6 @@ class GODFLEXRuntime:
                     data = response.json()
                     reply_text = data['candidates'][0]['content']['parts'][0]['text']
                     
-                    # Update chat memory
                     self.chat_history.append({"role": "user", "content": message})
                     self.chat_history.append({"role": "model", "content": reply_text})
                     
@@ -72,4 +84,4 @@ class GODFLEXRuntime:
 
     def recent_chat(self, limit: int = 20):
         return self.chat_history[-limit:]
-            
+        
