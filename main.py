@@ -1,4 +1,16 @@
 import os
+from threading import Thread
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+# Dummy HTTP Server to satisfy Render Health Check
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+Thread(target=run_dummy_server, daemon=True).start()
+
+import os
 
 from dotenv import load_dotenv
 
