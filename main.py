@@ -1,4 +1,5 @@
 import os
+import time
 from threading import Thread
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from dotenv import load_dotenv
@@ -54,16 +55,33 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
-    try:
-        user_text = message.text
-        response = godflex.chat(user_text)
-        bot.reply_to(message, response)
-    except QuotaExceededError as error:
-        bot.reply_to(message, f"⚠️ GODFLEX paused: {error}")
-    except Exception as error:
-        bot.reply_to(message, f"❌ Error: {str(error)}")
+    user_text = message.text
+    max_retries = 3
+    
+    for attempt in range(max_retries):
+        try:
+            response = godflex.chat(user_text)
+            bot.reply_to(message, response)
+            break
+        except QuotaExceededError as error:
+            bot.reply_to(message, f"⚠️ GODFLEX paused: {error}")
+            break
+        except Exception as error:
+            err_msg = str(error)
+            # Handle Gemini 503 / High Demand Spikes automatically
+            if ("503" in err_msg or "UNAVAILABLE" in err_msg) and attempt < max_retries - 1:
+                time.sleep(2 * (attempt + 1))  # Wait 2s, then 4s
+                continue
+            
+            bot.reply_to(message, f"❌ Error: {err_msg}")
+            break
 
 if __name__ == "__main__":
     print("GODFLEX Autonomous Service is live and listening on Telegram...")
-    bot.infinity_polling(skip_pending=True)
+    # Clear any old webhooks/locks on start
+    try:
+        bot.remove_webhook()
+    except Exception:
+        pass
+    bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=20)
     
