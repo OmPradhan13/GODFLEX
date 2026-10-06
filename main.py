@@ -117,11 +117,8 @@ def main():
 
 if __name__ == "__main__":
     main()
-import time
-
-# Script ko background me continuously run rakhne ke liye
+# Telegram bot ko continuous messages sunne ke liye active karta hai
 if __name__ == "__main__":
-    print("GODFLEX Autonomous Service is running in background...")
-    while True:
-        time.sleep(3600)  # Keeps the process active without taking CPU
-            
+    print("GODFLEX Autonomous Service is live and listening on Telegram...")
+    bot.infinity_polling(skip_pending=True)
+    
