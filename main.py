@@ -1,8 +1,12 @@
 import os
 from threading import Thread
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from dotenv import load_dotenv
+import telebot
 
-# Dummy HTTP Server to satisfy Render Health Check
+load_dotenv()
+
+# 1. Render Health Check Bypass (Dummy HTTP Server)
 def run_dummy_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
@@ -10,14 +14,8 @@ def run_dummy_server():
 
 Thread(target=run_dummy_server, daemon=True).start()
 
-import os
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
+# 2. Import Agent Runtime
 from agent.runtime import GODFLEXRuntime, QuotaExceededError
-
 
 class GODFLEX:
     """Public application facade backed by the persistent GODFLEX runtime."""
@@ -34,46 +32,6 @@ class GODFLEX:
         context = self._conversation_context()
         return self.runtime.chat(message=message, context=context)
 
-    def create_plan(self, goal: str):
-        context = self._conversation_context()
-        plan = self.runtime.create_plan(goal=goal, context=context)
-        self.current_plan = plan
-        return plan
-
-    def create_tasks_from_plan(self):
-        if not self.current_plan:
-            raise RuntimeError("No active plan exists.")
-
-        created_tasks = []
-
-        for task in self.current_plan["tasks"]:
-            created = self.runtime.create_task(
-                name=task["name"],
-                description=task["description"],
-                requires_approval=task.get("approval_required", True),
-            )
-            created_tasks.append(created)
-
-        return created_tasks
-
-    def approve_task(self, task_id: str):
-        return self.runtime.approve_task(task_id)
-
-    def start_task(self, task_id: str):
-        return self.runtime.start_task(task_id)
-
-    def cancel_task(self, task_id: str):
-        return self.runtime.cancel_task(task_id)
-
-    def get_task(self, task_id: str):
-        return self.runtime.get_task(task_id)
-
-    def list_tasks(self):
-        return self.runtime.list_tasks()
-
-    def status(self):
-        return self.runtime.status()
-
     def _conversation_context(self) -> str:
         messages = self.runtime.recent_chat(20)
         return "\n".join(
@@ -81,43 +39,30 @@ class GODFLEX:
             for item in messages
         )
 
+# 3. Telegram Bot Integration
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-def main():
-    godflex = GODFLEX()
+if not TELEGRAM_TOKEN:
+    print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN environment variable is not set!")
 
-    print("GODFLEX is online.")
-    print("Type 'exit' to end the session.")
-    print()
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+godflex = GODFLEX()
 
-    while True:
-        try:
-            message = input("You: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nGODFLEX session ended.")
-            break
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    bot.reply_to(message, "🔥 GODFLEX Autonomous Agent is online and connected to Telegram! Bhej apna query.")
 
-        if not message:
-            continue
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    try:
+        user_text = message.text
+        response = godflex.chat(user_text)
+        bot.reply_to(message, response)
+    except QuotaExceededError as error:
+        bot.reply_to(message, f"⚠️ GODFLEX paused: {error}")
+    except Exception as error:
+        bot.reply_to(message, f"❌ Error: {str(error)}")
 
-        if message.lower() == "exit":
-            print("GODFLEX session ended.")
-            break
-
-        try:
-            response = godflex.chat(message)
-            print("\nGODFLEX:")
-            print(response)
-            print()
-
-        except QuotaExceededError as error:
-            print(f"\nGODFLEX paused: {error}\n")
-        except Exception as error:
-            print(f"GODFLEX error: {error}")
-
-
-if __name__ == "__main__":
-    main()
-# Telegram bot ko continuous messages sunne ke liye active karta hai
 if __name__ == "__main__":
     print("GODFLEX Autonomous Service is live and listening on Telegram...")
     bot.infinity_polling(skip_pending=True)
